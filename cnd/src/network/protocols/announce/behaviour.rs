@@ -39,10 +39,8 @@ impl Announce {
 
 impl Default for Announce {
     fn default() -> Self {
-        pub fn default() -> Self {
-            Announce {
-                events: VecDeque::new(),
-            }
+        Announce {
+            events: VecDeque::new(),
         }
     }
 }
@@ -52,7 +50,7 @@ impl NetworkBehaviour for Announce {
     type OutEvent = BehaviourEvent;
 
     fn new_handler(&mut self) -> Self::ProtocolsHandler {
-        Handler::new()
+        Handler::default()
     }
 
     fn addresses_of_peer(&mut self, _: &PeerId) -> Vec<Multiaddr> {

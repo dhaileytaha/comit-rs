@@ -28,12 +28,10 @@ pub struct Handler {
 
 impl Default for Handler {
     fn default() -> Self {
-        pub fn default() -> Self {
-            Handler {
-                events: vec![],
-                keep_alive: KeepAlive::Yes,
-                dial_queue: VecDeque::new(),
-            }
+        Handler {
+            events: vec![],
+            keep_alive: KeepAlive::Yes,
+            dial_queue: VecDeque::new(),
         }
     }
 }
