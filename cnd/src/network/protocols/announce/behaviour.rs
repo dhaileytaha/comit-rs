@@ -30,10 +30,10 @@ pub struct Announce {
 impl Announce {
     /// This is how data flows into the network behaviour from the application
     /// when acting in the Role of Alice.
-    pub fn start_announce_protocol(&mut self, outbound_config: OutboundConfig, peer_id: &PeerId) {
+    pub fn start_announce_protocol(&mut self, swap_digest: &SwapDigest, peer_id: &PeerId) {
         self.events.push_back(NetworkBehaviourAction::SendEvent {
             peer_id: peer_id.clone(),
-            event: outbound_config,
+            event: OutboundConfig::new(swap_digest.clone()),
         });
     }
 
@@ -244,7 +244,7 @@ mod tests {
         let send_swap_digest = random_swap_digest();
         let outbound_config = OutboundConfig::new(send_swap_digest.clone());
 
-        alice_swarm.start_announce_protocol(outbound_config, &bob_peer_id);
+        alice_swarm.start_announce_protocol(&send_swap_digest, &bob_peer_id);
 
         async_std::task::block_on(async move {
             loop {

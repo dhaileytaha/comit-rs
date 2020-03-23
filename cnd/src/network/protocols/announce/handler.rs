@@ -80,11 +80,10 @@ impl ProtocolsHandler for Handler {
     ) {
         self.events
             .push(HandlerEvent::ReceivedConfirmation(confirmed));
-        // self.keep_alive = KeepAlive::No;
+        self.keep_alive = KeepAlive::No;
     }
 
     fn inject_event(&mut self, event: Self::InEvent) {
-        // self.keep_alive = KeepAlive::Yes;
         self.dial_queue.push_front(event);
     }
 
@@ -96,7 +95,7 @@ impl ProtocolsHandler for Handler {
         >,
     ) {
         self.events.push(HandlerEvent::Error(Error::Upgrade(err)));
-        // self.keep_alive = KeepAlive::No;
+        self.keep_alive = KeepAlive::No;
     }
 
     fn connection_keep_alive(&self) -> KeepAlive {
@@ -123,11 +122,12 @@ impl ProtocolsHandler for Handler {
         }
 
         if !self.dial_queue.is_empty() {
-            let upgrade = self.dial_queue.remove(0).unwrap(); // Cannot fail, queue is not empty.
-            return Poll::Ready(ProtocolsHandlerEvent::OutboundSubstreamRequest {
-                protocol: SubstreamProtocol::new(upgrade),
-                info: (),
-            });
+            if let Some(upgrade) = self.dial_queue.remove(0) {
+                return Poll::Ready(ProtocolsHandlerEvent::OutboundSubstreamRequest {
+                    protocol: SubstreamProtocol::new(upgrade),
+                    info: (),
+                });
+            }
         }
 
         Poll::Pending

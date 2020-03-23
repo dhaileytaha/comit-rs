@@ -44,8 +44,6 @@ where
         Box::pin(async move {
             let bytes = serde_json::to_vec(&self.swap_digest)?;
             upgrade::write_one(&mut socket, &bytes).await?;
-            // FIXME: Is this correct (do we need a close of the write end for some reason
-            // before reading)?
             socket.close().await?;
 
             let message = upgrade::read_one(&mut socket, 1024).await?;
