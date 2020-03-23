@@ -13,6 +13,12 @@ pub struct OutboundConfig {
     swap_digest: SwapDigest,
 }
 
+impl OutboundConfig {
+    pub fn new(swap_digest: SwapDigest) -> Self {
+        OutboundConfig { swap_digest }
+    }
+}
+
 impl UpgradeInfo for OutboundConfig {
     type Info = &'static [u8];
     type InfoIter = iter::Once<Self::Info>;
@@ -139,88 +145,4 @@ pub enum Error {
     Write(#[from] io::Error),
     #[error("failed to serialize/deserialize the message")]
     Serde(#[from] serde_json::Error),
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use futures::channel::oneshot;
-    use libp2p::{
-        core::{
-            upgrade::{self, apply_inbound, apply_outbound},
-            Transport,
-        },
-        multihash::Multihash,
-        tcp::TcpConfig,
-    };
-    use std::str::FromStr;
-
-    fn swap_digest() -> SwapDigest {
-        let v = Vec::from("abcdefg");
-        SwapDigest {
-            inner: Multihash::from_bytes(v).unwrap(),
-        }
-    }
-
-    #[tokio::test]
-    async fn correct_transfer() {
-        let send_swap_digest = swap_digest();
-        let send_swap_id = SwapId::from_str("ad2652ca-ecf2-4cc6-b35c-b4351ac28a34").unwrap();
-
-        let (tx, rx) = oneshot::channel();
-
-        tokio::task::spawn({
-            let send_swap_digest = send_swap_digest.clone();
-            async move {
-                let transport = TcpConfig::new();
-
-                let mut listener = transport
-                    .listen_on("/ip4/127.0.0.1/tcp/0".parse().unwrap())
-                    .unwrap();
-
-                let addr = listener
-                    .next()
-                    .await
-                    .expect("some event")
-                    .expect("no error")
-                    .into_new_address()
-                    .expect("listen address");
-                tx.send(addr).unwrap();
-
-                let socket = listener
-                    .next()
-                    .await
-                    .unwrap()
-                    .unwrap()
-                    .into_upgrade()
-                    .unwrap()
-                    .0
-                    .await
-                    .unwrap();
-                let sender = apply_inbound(socket, InboundConfig::default())
-                    .await
-                    .unwrap();
-                let receive_swap_digest = sender.swap_digest.clone();
-
-                assert_eq!(send_swap_digest, receive_swap_digest);
-
-                sender.send(send_swap_id).await
-            }
-        });
-
-        let transport = TcpConfig::new();
-
-        let socket = transport.dial(rx.await.unwrap()).unwrap().await.unwrap();
-        let confirmed = apply_outbound(
-            socket,
-            OutboundConfig {
-                swap_digest: send_swap_digest,
-            },
-            upgrade::Version::V1,
-        )
-        .await
-        .unwrap();
-
-        assert_eq!(send_swap_id, confirmed.swap_id)
-    }
 }

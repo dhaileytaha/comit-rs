@@ -80,11 +80,11 @@ impl ProtocolsHandler for Handler {
     ) {
         self.events
             .push(HandlerEvent::ReceivedConfirmation(confirmed));
-        self.keep_alive = KeepAlive::No;
+        // self.keep_alive = KeepAlive::No;
     }
 
     fn inject_event(&mut self, event: Self::InEvent) {
-        self.keep_alive = KeepAlive::Yes;
+        // self.keep_alive = KeepAlive::Yes;
         self.dial_queue.push_front(event);
     }
 
@@ -96,7 +96,7 @@ impl ProtocolsHandler for Handler {
         >,
     ) {
         self.events.push(HandlerEvent::Error(Error::Upgrade(err)));
-        self.keep_alive = KeepAlive::No;
+        // self.keep_alive = KeepAlive::No;
     }
 
     fn connection_keep_alive(&self) -> KeepAlive {

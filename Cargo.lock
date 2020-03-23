@@ -531,6 +531,7 @@ version = "0.7.0"
 dependencies = [
  "ambassador",
  "anyhow",
+ "async-std",
  "async-trait",
  "base64 0.12.0",
  "bigdecimal",

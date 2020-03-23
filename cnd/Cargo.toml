@@ -71,3 +71,4 @@ serde_urlencoded = "0.6"
 spectral = { version = "0.6", default-features = false }
 tempfile = "3.1.0"
 testcontainers = "0.8"
+async-std = "1.5.0"
