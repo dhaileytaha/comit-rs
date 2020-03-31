@@ -1,6 +1,6 @@
 use crate::network::oneshot_protocol;
 use libp2p::{
-    core::{ConnectedPoint, Multiaddr, PeerId},
+    core::{connection::ConnectionId, ConnectedPoint, Multiaddr, PeerId},
     swarm::{
         NetworkBehaviour, NetworkBehaviourAction, OneShotHandler, PollParameters, ProtocolsHandler,
     },
@@ -73,7 +73,12 @@ where
         // Do nothing, announce protocol is going to take care of connections.
     }
 
-    fn inject_node_event(&mut self, peer: PeerId, event: oneshot_protocol::OutEvent<M>) {
+    fn inject_event(
+        &mut self,
+        peer: PeerId,
+        _connection: ConnectionId,
+        event: oneshot_protocol::OutEvent<M>,
+    ) {
         match event {
             oneshot_protocol::OutEvent::Received(message) => {
                 trace!(

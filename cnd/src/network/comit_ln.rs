@@ -31,7 +31,8 @@ use crate::{
 use blockchain_contracts::ethereum::rfc003::ether_htlc::EtherHtlc;
 use chrono::Utc;
 use futures::AsyncWriteExt;
-use libp2p::{multihash, swarm::NetworkBehaviourEventProcess, NetworkBehaviour};
+use libp2p::{swarm::NetworkBehaviourEventProcess, NetworkBehaviour};
+use multihash::Sha2_256;
 use std::{collections::HashMap, str::FromStr, sync::Arc};
 use tracing_futures::Instrument;
 
@@ -113,15 +114,11 @@ impl ComitLN {
             seed,
         }
     }
-
     pub fn initiate_communication(&mut self, id: NodeLocalSwapId, body: Body) {
         let digest = SwapDigest {
-            inner: multihash::encode(
-                multihash::Hash::SHA2256,
-                b"TODO REPLACE ME WITH THE ACTUAL SWAP DIGEST",
-            )
-            .to_owned()
-            .unwrap(),
+            inner: Sha2_256::digest(b"TODO REPLACE ME WITH THE ACTUAL SWAP DIGEST")
+                .to_owned()
+                .unwrap(),
         };
 
         self.swaps.insert(id, body.clone());

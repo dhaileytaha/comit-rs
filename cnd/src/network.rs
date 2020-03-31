@@ -46,7 +46,6 @@ use futures::{
 use libp2p::{
     core::either::{EitherError, EitherOutput},
     identity::{ed25519, Keypair},
-    mdns::Mdns,
     swarm::{
         protocols_handler::{DummyProtocolsHandler, OneShotHandler},
         IntoProtocolsHandlerSelect, NetworkBehaviourEventProcess, ProtocolsHandlerUpgrErr,
@@ -59,6 +58,7 @@ use libp2p_comit::{
     handler::{ComitHandler, ProtocolInEvent, ProtocolOutEvent},
     BehaviourOutEvent, Comit, PendingInboundRequest,
 };
+use libp2p_mdns::Mdns;
 use serde::{de::DeserializeOwned, Serialize};
 use std::{
     collections::{HashMap, HashSet},
@@ -1220,8 +1220,8 @@ impl NetworkBehaviourEventProcess<BehaviourOutEvent> for ComitNode {
     }
 }
 
-impl NetworkBehaviourEventProcess<libp2p::mdns::MdnsEvent> for ComitNode {
-    fn inject_event(&mut self, _event: libp2p::mdns::MdnsEvent) {}
+impl NetworkBehaviourEventProcess<libp2p_mdns::MdnsEvent> for ComitNode {
+    fn inject_event(&mut self, _event: libp2p_mdns::MdnsEvent) {}
 }
 
 impl NetworkBehaviourEventProcess<()> for ComitNode {

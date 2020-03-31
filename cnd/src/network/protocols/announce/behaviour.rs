@@ -10,10 +10,10 @@ use crate::{
     swap_protocols::SwapId,
 };
 use libp2p::{
-    core::{ConnectedPoint, Multiaddr, PeerId},
+    core::{connection::ConnectionId, ConnectedPoint, Multiaddr, PeerId},
     swarm::{
-        NegotiatedSubstream, NetworkBehaviour, NetworkBehaviourAction, PollParameters,
-        ProtocolsHandler,
+        NegotiatedSubstream, NetworkBehaviour, NetworkBehaviourAction, NotifyHandler,
+        PollParameters, ProtocolsHandler,
     },
 };
 use std::{
@@ -90,10 +90,12 @@ impl Announce {
                         }
                     }
                     ConnectionState::Connected { .. } => {
-                        self.events.push_back(NetworkBehaviourAction::SendEvent {
-                            peer_id: dial_info.peer_id.clone(),
-                            event: OutboundConfig::new(swap_digest),
-                        });
+                        self.events
+                            .push_back(NetworkBehaviourAction::NotifyHandler {
+                                peer_id: dial_info.peer_id.clone(),
+                                handler: NotifyHandler::All,
+                                event: OutboundConfig::new(swap_digest),
+                            });
                     }
                 }
             }
@@ -152,10 +154,12 @@ impl NetworkBehaviour for Announce {
                         address_hints: _we_no_longer_care_at_this_stage,
                     } => {
                         for event in pending_events {
-                            self.events.push_back(NetworkBehaviourAction::SendEvent {
-                                peer_id: peer_id.clone(),
-                                event,
-                            })
+                            self.events
+                                .push_back(NetworkBehaviourAction::NotifyHandler {
+                                    peer_id: peer_id.clone(),
+                                    handler: NotifyHandler::All,
+                                    event,
+                                })
                         }
 
                         let mut addresses = HashSet::new();
@@ -194,7 +198,7 @@ impl NetworkBehaviour for Announce {
         }
     }
 
-    fn inject_node_event(&mut self, peer_id: PeerId, event: HandlerEvent) {
+    fn inject_event(&mut self, peer_id: PeerId, _connection: ConnectionId, event: HandlerEvent) {
         match event {
             HandlerEvent::ReceivedConfirmation(confirmed) => {
                 self.events.push_back(NetworkBehaviourAction::GenerateEvent(

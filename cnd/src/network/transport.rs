@@ -6,13 +6,12 @@ use libp2p::{
         upgrade::{SelectUpgrade, Version},
         UpgradeError,
     },
-    dns::{DnsConfig, DnsErr},
-    identity,
-    mplex::MplexConfig,
-    secio::{SecioConfig, SecioError},
-    tcp::TcpConfig,
-    yamux, PeerId, Transport,
+    identity, PeerId, Transport,
 };
+use libp2p_dns::{DnsConfig, DnsErr};
+use libp2p_mplex::MplexConfig;
+use libp2p_secio::{SecioConfig, SecioError};
+use libp2p_tcp::TcpConfig;
 use std::{io, time::Duration};
 
 pub type ComitTransport = Boxed<
@@ -38,7 +37,7 @@ pub fn build_comit_transport(keypair: identity::Keypair) -> anyhow::Result<Comit
         .upgrade(Version::V1)
         .authenticate(SecioConfig::new(keypair))
         .multiplex(SelectUpgrade::new(
-            yamux::Config::default(),
+            libp2p_yamux::Config::default(),
             MplexConfig::new(),
         ))
         .map(|(peer, muxer), _| (peer, StreamMuxerBox::new(muxer)))

@@ -10,8 +10,8 @@ use futures::{
     Future, StreamExt, TryFutureExt,
 };
 use libp2p::{
-    core::{ConnectedPoint, Multiaddr, PeerId},
-    swarm::{NetworkBehaviour, NetworkBehaviourAction, PollParameters},
+    core::{connection::ConnectionId, ConnectedPoint, Multiaddr, PeerId},
+    swarm::{NetworkBehaviour, NetworkBehaviourAction, NotifyHandler, PollParameters},
 };
 use std::{
     collections::{hash_map::Entry, HashMap, HashSet},
@@ -112,8 +112,9 @@ impl Comit {
                     }
                     ConnectionState::Connected { .. } => {
                         self.events_sender
-                            .unbounded_send(NetworkBehaviourAction::SendEvent {
+                            .unbounded_send(NetworkBehaviourAction::NotifyHandler {
                                 peer_id,
+                                handler: NotifyHandler::All,
                                 event: ProtocolInEvent::Message(OutboundMessage::Request(request)),
                             })
                             .expect("we own the receiver");
@@ -194,8 +195,9 @@ impl NetworkBehaviour for Comit {
                     } => {
                         for event in pending_events {
                             self.events_sender
-                                .unbounded_send(NetworkBehaviourAction::SendEvent {
+                                .unbounded_send(NetworkBehaviourAction::NotifyHandler {
                                     peer_id: peer_id.clone(),
+                                    handler: NotifyHandler::All,
                                     event,
                                 })
                                 .expect("we own the receiver");
@@ -236,7 +238,7 @@ impl NetworkBehaviour for Comit {
         }
     }
 
-    fn inject_node_event(&mut self, peer: PeerId, event: ProtocolOutEvent) {
+    fn inject_event(&mut self, peer: PeerId, _connection: ConnectionId, event: ProtocolOutEvent) {
         match event {
             ProtocolOutEvent::Message(InboundMessage::Request(request)) => {
                 self.events_sender

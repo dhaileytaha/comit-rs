@@ -2,7 +2,7 @@ pub mod behaviour;
 pub mod handler;
 pub mod protocol;
 
-use libp2p::{multihash, multihash::Multihash};
+use multihash::Multihash;
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use std::fmt;
 
@@ -14,7 +14,7 @@ pub struct SwapDigest {
 
 impl fmt::Display for SwapDigest {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "{}", multihash::to_hex(self.inner.to_vec().as_slice()))
+        write!(f, "{}", hex::encode(self.inner.to_vec()))
     }
 }
 
