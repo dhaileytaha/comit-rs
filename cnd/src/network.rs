@@ -1,5 +1,6 @@
 mod oneshot_behaviour;
 
+pub mod comit_ln;
 pub mod oneshot_protocol;
 pub mod protocols;
 pub mod transport;
@@ -17,8 +18,14 @@ use crate::{
     db::{Save, Sqlite, Swap},
     htlc_location,
     libp2p_comit_ext::{FromHeader, ToHeader},
+    lnd::LndConnectorParams,
+    network::{
+        comit_ln::ComitLN,
+        protocols::{announce, ethereum_identity, finalize, lightning_identity, secret_hash},
+    },
     seed::RootSeed,
     swap_protocols::{
+        halight::InvoiceStates,
         ledger,
         rfc003::{
             self,
@@ -26,7 +33,8 @@ use crate::{
             LedgerState, SwapCommunication,
         },
         state::Insert,
-        HashFunction, LedgerStates, Role, SwapCommunicationStates, SwapId, SwapProtocol,
+        CreateSwapParams, HashFunction, LedgerStates, NodeLocalSwapId, Role,
+        SwapCommunicationStates, SwapId, SwapProtocol,
     },
     transaction,
 };
@@ -40,8 +48,9 @@ use libp2p::{
     identity::{ed25519, Keypair},
     mdns::Mdns,
     swarm::{
-        protocols_handler::DummyProtocolsHandler, IntoProtocolsHandlerSelect,
-        NetworkBehaviourEventProcess, SwarmBuilder,
+        protocols_handler::{DummyProtocolsHandler, OneShotHandler},
+        IntoProtocolsHandlerSelect, NetworkBehaviourEventProcess, ProtocolsHandlerUpgrErr,
+        SwarmBuilder,
     },
     Multiaddr, NetworkBehaviour, PeerId,
 };
@@ -65,20 +74,112 @@ use tokio::{
     sync::Mutex,
 };
 
+type SecretHashHandler = OneShotHandler<
+    oneshot_protocol::InboundConfig<secret_hash::Message>,
+    oneshot_protocol::OutboundConfig<secret_hash::Message>,
+    oneshot_protocol::OutEvent<secret_hash::Message>,
+>;
+type EthereumHandler = OneShotHandler<
+    oneshot_protocol::InboundConfig<ethereum_identity::Message>,
+    oneshot_protocol::OutboundConfig<ethereum_identity::Message>,
+    oneshot_protocol::OutEvent<ethereum_identity::Message>,
+>;
+type LightningHandler = OneShotHandler<
+    oneshot_protocol::InboundConfig<lightning_identity::Message>,
+    oneshot_protocol::OutboundConfig<lightning_identity::Message>,
+    oneshot_protocol::OutEvent<lightning_identity::Message>,
+>;
+type FinalizeHandler = OneShotHandler<
+    oneshot_protocol::InboundConfig<finalize::Message>,
+    oneshot_protocol::OutboundConfig<finalize::Message>,
+    oneshot_protocol::OutEvent<finalize::Message>,
+>;
+
+// TODO make this less ugly
 type ExpandedSwarm = libp2p::swarm::ExpandedSwarm<
     ComitNode,
-    EitherOutput<ProtocolInEvent, void::Void>,
-    EitherOutput<ProtocolOutEvent, void::Void>,
-    IntoProtocolsHandlerSelect<ComitHandler, DummyProtocolsHandler>,
-    EitherError<libp2p_comit::handler::Error, void::Void>,
+    EitherOutput<
+        EitherOutput<
+            ProtocolInEvent,
+            EitherOutput<
+                EitherOutput<
+                    EitherOutput<
+                        EitherOutput<
+                            announce::protocol::OutboundConfig,
+                            oneshot_protocol::OutboundConfig<secret_hash::Message>,
+                        >,
+                        oneshot_protocol::OutboundConfig<ethereum_identity::Message>,
+                    >,
+                    oneshot_protocol::OutboundConfig<lightning_identity::Message>,
+                >,
+                oneshot_protocol::OutboundConfig<finalize::Message>,
+            >,
+        >,
+        void::Void,
+    >,
+    EitherOutput<
+        EitherOutput<
+            ProtocolOutEvent,
+            EitherOutput<
+                EitherOutput<
+                    EitherOutput<
+                        EitherOutput<
+                            announce::handler::HandlerEvent,
+                            oneshot_protocol::OutEvent<secret_hash::Message>,
+                        >,
+                        oneshot_protocol::OutEvent<ethereum_identity::Message>,
+                    >,
+                    oneshot_protocol::OutEvent<lightning_identity::Message>,
+                >,
+                oneshot_protocol::OutEvent<finalize::Message>,
+            >,
+        >,
+        void::Void,
+    >,
+    IntoProtocolsHandlerSelect<
+        IntoProtocolsHandlerSelect<
+            ComitHandler,
+            IntoProtocolsHandlerSelect<
+                IntoProtocolsHandlerSelect<
+                    IntoProtocolsHandlerSelect<
+                        IntoProtocolsHandlerSelect<announce::handler::Handler, SecretHashHandler>,
+                        EthereumHandler,
+                    >,
+                    LightningHandler,
+                >,
+                FinalizeHandler,
+            >,
+        >,
+        DummyProtocolsHandler,
+    >,
+    EitherError<
+        EitherError<
+            libp2p_comit::handler::Error,
+            EitherError<
+                EitherError<
+                    EitherError<
+                        EitherError<
+                            announce::handler::Error,
+                            ProtocolsHandlerUpgrErr<oneshot_protocol::Error>,
+                        >,
+                        ProtocolsHandlerUpgrErr<oneshot_protocol::Error>,
+                    >,
+                    ProtocolsHandlerUpgrErr<oneshot_protocol::Error>,
+                >,
+                ProtocolsHandlerUpgrErr<oneshot_protocol::Error>,
+            >,
+        >,
+        void::Void,
+    >,
 >;
 
 #[derive(Clone, derivative::Derivative)]
 #[derivative(Debug)]
 #[allow(clippy::type_complexity)]
 pub struct Swarm {
+    // TODO: reconsider pub visibility
     #[derivative(Debug = "ignore")]
-    swarm: Arc<Mutex<ExpandedSwarm>>,
+    pub swarm: Arc<Mutex<ExpandedSwarm>>,
     local_peer_id: PeerId,
 }
 
@@ -90,9 +191,11 @@ impl Swarm {
         runtime: &mut Runtime,
         bitcoin_connector: Arc<bitcoin::Cache<BitcoindConnector>>,
         ethereum_connector: Arc<ethereum::Cache<Web3Connector>>,
+        lnd_connector_params: LndConnectorParams,
         swap_communication_states: Arc<SwapCommunicationStates>,
         alpha_ledger_state: Arc<LedgerStates>,
         beta_ledger_state: Arc<LedgerStates>,
+        invoice_states: Arc<InvoiceStates>,
         database: &Sqlite,
     ) -> anyhow::Result<Self> {
         let local_key_pair = derive_key_pair(&seed);
@@ -103,9 +206,11 @@ impl Swarm {
         let behaviour = ComitNode::new(
             bitcoin_connector,
             ethereum_connector,
+            lnd_connector_params,
             swap_communication_states,
             alpha_ledger_state,
             beta_ledger_state,
+            invoice_states,
             seed,
             database.clone(),
             runtime.handle().clone(),
@@ -157,6 +262,18 @@ impl Swarm {
         unimplemented!()
     }
 
+    pub async fn initiate_communication(&self, id: NodeLocalSwapId, swap_params: CreateSwapParams) {
+        let mut guard = self.swarm.lock().await;
+
+        guard.initiate_communication(id, swap_params)
+    }
+
+    pub async fn get_finalized_swap(&self, id: NodeLocalSwapId) -> Option<comit_ln::FinalizedSwap> {
+        let mut guard = self.swarm.lock().await;
+
+        guard.get_finalized_swap(id)
+    }
+
     // On Bob's side, when an announce message is received execute the required
     // communication protocols and write the finalized swap to the database.  Then
     // spawn the same as is done for Alice.
@@ -191,6 +308,7 @@ fn derive_key_pair(seed: &RootSeed) -> Keypair {
 #[allow(missing_debug_implementations)]
 pub struct ComitNode {
     comit: Comit,
+    comit_ln: ComitLN,
     mdns: Mdns,
 
     #[behaviour(ignore)]
@@ -250,9 +368,11 @@ impl ComitNode {
     pub fn new(
         bitcoin_connector: Arc<bitcoin::Cache<BitcoindConnector>>,
         ethereum_connector: Arc<ethereum::Cache<Web3Connector>>,
+        lnd_connector_params: LndConnectorParams,
         swap_communication_states: Arc<SwapCommunicationStates>,
         alpha_ledger_state: Arc<LedgerStates>,
         beta_ledger_state: Arc<LedgerStates>,
+        invoice_states: Arc<InvoiceStates>,
         seed: RootSeed,
         db: Sqlite,
         task_executor: Handle,
@@ -271,6 +391,13 @@ impl ComitNode {
         Ok(Self {
             comit: Comit::new(known_headers),
             mdns: Mdns::new()?,
+            comit_ln: ComitLN::new(
+                lnd_connector_params,
+                ethereum_connector.clone(),
+                alpha_ledger_state.clone(),
+                invoice_states,
+                seed,
+            ),
             bitcoin_connector,
             ethereum_connector,
             alpha_ledger_state,
@@ -290,6 +417,15 @@ impl ComitNode {
     ) -> impl futures::Future<Output = Result<Response, ()>> + Send + 'static + Unpin {
         self.comit
             .send_request((peer_id.peer_id, peer_id.address_hint), request)
+    }
+
+    pub fn initiate_communication(&mut self, id: NodeLocalSwapId, swap_params: CreateSwapParams) {
+        self.comit_ln.initiate_communication(id, swap_params)
+    }
+
+    // TODO: do we need all these layers of abstraction ?!
+    pub fn get_finalized_swap(&mut self, id: NodeLocalSwapId) -> Option<comit_ln::FinalizedSwap> {
+        self.comit_ln.get_finalized_swap(id)
     }
 }
 
@@ -1090,6 +1226,10 @@ impl NetworkBehaviourEventProcess<BehaviourOutEvent> for ComitNode {
 
 impl NetworkBehaviourEventProcess<libp2p::mdns::MdnsEvent> for ComitNode {
     fn inject_event(&mut self, _event: libp2p::mdns::MdnsEvent) {}
+}
+
+impl NetworkBehaviourEventProcess<()> for ComitNode {
+    fn inject_event(&mut self, _event: ()) {}
 }
 
 impl<AL, BL, AA, BA, AI, BI> TryFrom<Request<AL, BL, AA, BA, AI, BI>> for OutboundRequest

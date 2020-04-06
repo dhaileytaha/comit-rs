@@ -5,12 +5,14 @@
 
 import { twoActorTest } from "../../src/actor_test";
 import { AssetKind } from "../../src/asset";
-import { sleep } from "../../src/utils";
-import { expect } from "chai";
+import { HarnessGlobal, sleep } from "../../src/utils";
 import { LedgerKind } from "../../src/ledgers/ledger";
+import SwapFactory from "../../src/actors/swap_factory";
+
+declare var global: HarnessGlobal;
 
 // ******************************************** //
-// Lightning Sanity Test                        //
+// Lnd Sanity Test                              //
 // ******************************************** //
 describe("E2E: Sanity - LND Alice pays Bob", () => {
     it(
@@ -56,7 +58,7 @@ describe("E2E: Sanity - LND Alice pays Bob", () => {
             await bob.lnSettleInvoice(secret, secretHash);
 
             const pay = await paymentPromise;
-            expect(pay.paymentPreimage.toString("hex")).equals(secret);
+            expect(pay.paymentPreimage.toString("hex")).toEqual(secret);
 
             await bob.lnAssertInvoiceSettled(secretHash);
         })
@@ -64,7 +66,43 @@ describe("E2E: Sanity - LND Alice pays Bob", () => {
 });
 
 // ******************************************** //
-// Bitcoin/bitcoin Alpha Ledger/ Alpha Asset    //
+// Han/Ethereum/ether Alpha                     //
+// Halight/Lightning/bitcoin Beta               //
+// ******************************************** //
+describe("E2E: Ethereum/ether - Lightning/bitcoin", () => {
+    it(
+        "han-ethereum-ether-halight-lightning-bitcoin-alice-redeems-bob-redeems",
+        twoActorTest(async ({ alice, bob }) => {
+            const [aliceBody, bobBody] = await SwapFactory.newSwap(alice, bob);
+
+            // make sure bob knows about the swap first
+            await bob.createSwap(bobBody);
+            await sleep(500);
+
+            await alice.createSwap(aliceBody);
+
+            await alice.init();
+
+            await alice.fund();
+
+            // we must not wait for bob's funding because `sendpayment` on a hold-invoice is a blocking call :(
+            // TODO: fix this :)
+            // tslint:disable-next-line:no-floating-promises
+            bob.fund();
+
+            await alice.redeem();
+            await bob.redeem();
+
+            await sleep(2000); // TODO: ugly hack until we can assert on some status from cnd
+
+            await alice.assertBalances();
+            await bob.assertBalances();
+        })
+    );
+});
+
+// ******************************************** //
+// Bitcoin/bitcoin Alpha Ledger/Alpha Asset     //
 // Ethereum/ether Beta Ledger/Beta Asset        //
 // ******************************************** //
 describe("E2E: Bitcoin/bitcoin - Ethereum/ether", () => {
@@ -423,7 +461,7 @@ describe("E2E: Ethereum/ether - Bitcoin/bitcoin", () => {
 
             const responsePromise = alice.redeemWithHighFee();
 
-            return expect(responsePromise).to.be.rejected;
+            return expect(responsePromise).rejects.toThrow();
         })
     );
 });

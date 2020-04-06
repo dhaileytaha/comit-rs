@@ -6,8 +6,11 @@ use crate::{
         actions::{
             bitcoin::{SendToAddress, SpendOutput},
             ethereum,
+            lnd::Chain,
         },
-        ledger, SwapId,
+        ledger,
+        rfc003::{Secret, SecretHash},
+        SwapId,
     },
     timestamp::Timestamp,
     transaction,
@@ -55,17 +58,41 @@ pub enum ActionResponseBody {
     EthereumDeployContract {
         data: crate::ethereum::Bytes,
         amount: asset::Ether,
-        gas_limit: crate::ethereum::U256,
+        gas_limit: u64,
         chain_id: ledger::ethereum::ChainId,
     },
     EthereumCallContract {
         contract_address: identity::Ethereum,
         #[serde(skip_serializing_if = "Option::is_none")]
         data: Option<crate::ethereum::Bytes>,
-        gas_limit: crate::ethereum::U256,
+        gas_limit: u64,
         chain_id: ledger::ethereum::ChainId,
         #[serde(skip_serializing_if = "Option::is_none")]
         min_block_timestamp: Option<Timestamp>,
+    },
+    LndAddHoldInvoice {
+        amount: Http<asset::Lightning>,
+        secret_hash: SecretHash,
+        expiry: u32,
+        cltv_expiry: u32,
+        chain: Http<Chain>,
+        network: Http<bitcoin::Network>,
+        self_public_key: identity::Lightning,
+    },
+    LndSendPayment {
+        to_public_key: identity::Lightning,
+        amount: Http<asset::Lightning>,
+        secret_hash: SecretHash,
+        final_cltv_delta: u32,
+        chain: Http<Chain>,
+        network: Http<bitcoin::Network>,
+        self_public_key: identity::Lightning,
+    },
+    LndSettleInvoice {
+        secret: Secret,
+        chain: Http<Chain>,
+        network: Http<bitcoin::Network>,
+        self_public_key: identity::Lightning,
     },
     None,
 }
@@ -238,6 +265,8 @@ impl IntoResponsePayload for ethereum::DeployContract {
             gas_limit,
             chain_id,
         } = self;
+        let gas_limit = gas_limit.into();
+
         match query_params {
             ActionExecutionParameters::None {} => Ok(ActionResponseBody::EthereumDeployContract {
                 data,
@@ -271,6 +300,8 @@ impl IntoResponsePayload for ethereum::CallContract {
             chain_id,
             min_block_timestamp,
         } = self;
+        let gas_limit = gas_limit.into();
+
         match query_params {
             ActionExecutionParameters::None {} => Ok(ActionResponseBody::EthereumCallContract {
                 contract_address: to,
@@ -311,7 +342,7 @@ impl IntoResponsePayload for Infallible {
 #[cfg(test)]
 mod test {
     use super::*;
-    use crate::{ethereum::U256, identity, swap_protocols::ledger::ethereum::ChainId};
+    use crate::{identity, swap_protocols::ledger::ethereum::ChainId};
     use bitcoin::Address as BitcoinAddress;
     use std::str::FromStr;
 
@@ -345,14 +376,14 @@ mod test {
         let contract = ActionResponseBody::EthereumCallContract {
             contract_address: addr,
             data: None,
-            gas_limit: U256::from(1),
+            gas_limit: 1,
             chain_id,
             min_block_timestamp: None,
         };
         let serialized = serde_json::to_string(&contract).unwrap();
         assert_eq!(
             serialized,
-            r#"{"type":"ethereum-call-contract","payload":{"contract_address":"0x0a81e8be41b21f651a71aab1a85c6813b8bbccf8","gas_limit":"0x1","chain_id":3}}"#
+            r#"{"type":"ethereum-call-contract","payload":{"contract_address":"0x0a81e8be41b21f651a71aab1a85c6813b8bbccf8","gas_limit":"1","chain_id":3}}"#
         );
     }
 
