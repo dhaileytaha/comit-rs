@@ -2,6 +2,7 @@ pub mod behaviour;
 pub mod handler;
 pub mod protocol;
 
+use digest::IntoDigestInput;
 use multihash::{self, Multihash};
 use serde::{de::Error, Deserialize, Deserializer, Serialize, Serializer};
 use std::fmt;
@@ -12,6 +13,18 @@ pub struct SwapDigest(Multihash);
 impl SwapDigest {
     pub fn new(multihash: Multihash) -> Self {
         Self(multihash)
+    }
+}
+
+impl IntoDigestInput for SwapDigest {
+    fn into_digest_input(self) -> Vec<u8> {
+        self.0.into_bytes()
+    }
+}
+
+impl digest::Hash for SwapDigest {
+    fn hash(bytes: &[u8]) -> Self {
+        Self(multihash::Sha3_256::digest(bytes))
     }
 }
 
