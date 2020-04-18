@@ -104,3 +104,24 @@ table! {
        counterparty -> Text,
    }
 }
+
+table! {
+    han_bitcoin {
+        id -> Integer,
+        local_swap_id -> Text,
+    }
+}
+
+table! {
+    han_ethereum {
+        id -> Integer,
+        local_swap_id -> Text,
+    }
+}
+
+table! {
+    swaps {
+        id -> Integer,
+        local_swap_id -> Text,
+    }
+}

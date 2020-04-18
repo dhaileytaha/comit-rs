@@ -12,6 +12,8 @@ mod swap_types;
 pub mod with_swap_types;
 embed_migrations!("./migrations");
 
+mod new_db;
+
 pub use self::{
     load_swaps::{AcceptedSwap, LoadAcceptedSwap},
     save::*,

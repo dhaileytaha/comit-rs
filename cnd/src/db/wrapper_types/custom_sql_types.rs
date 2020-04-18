@@ -9,7 +9,7 @@ use std::{convert::TryFrom, fmt, ops::Deref, str::FromStr};
 
 /// Custom diesel new-type that works as long as T implements `Display` and
 /// `FromStr`.
-#[derive(Debug, Clone, Copy, PartialEq, FromSqlRow, AsExpression)]
+#[derive(Debug, Clone, Copy, PartialEq, FromSqlRow, AsExpression, Eq, Hash)]
 #[sql_type = "sql_types::Text"]
 pub struct Text<T>(pub T);
 
