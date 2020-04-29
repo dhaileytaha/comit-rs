@@ -44,7 +44,7 @@ describe("E2E: Sanity - LND Alice pays Bob", () => {
                 3600,
                 finalCltvDelta
             );
-            const paymentPromise = alice.lnSendPayment(
+            const paymentSettled = await alice.lnSendPayment(
                 bob,
                 satAmount,
                 secretHash,
@@ -53,7 +53,7 @@ describe("E2E: Sanity - LND Alice pays Bob", () => {
 
             await bob.lnSettleInvoice(secret, secretHash);
 
-            const pay = await paymentPromise;
+            const pay = await paymentSettled();
             expect(pay.paymentPreimage.toString("hex")).equals(secret);
 
             await bob.lnAssertInvoiceSettled(secretHash);
