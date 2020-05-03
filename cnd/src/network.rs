@@ -24,7 +24,9 @@ use crate::{
     seed::RootSeed,
     swap_protocols::{
         halight,
-        halight::{LndConnectorAsReceiver, LndConnectorAsSender, LndConnectorParams, States},
+        halight::{
+            LndConnectorAsReceiver, LndConnectorAsSender, LndConnectorParams, Params, States,
+        },
         han, ledger,
         rfc003::{
             self,
@@ -1181,7 +1183,7 @@ impl libp2p::swarm::NetworkBehaviourEventProcess<comit_ln::BehaviourOutEvent> fo
                             Role::Alice => {
                                 tokio::task::spawn({
                                     let lnd_connector: LndConnectorAsReceiver = (**lnd_connector_params).clone().into();
-                                    halight::new_halight_swap(local_swap_id, secret_hash, self.halight_states.clone(), lnd_connector)
+                                    halight::new_halight_swap(local_swap_id, secret_hash, Params::from(create_swap_params.clone()), self.halight_states.clone(), lnd_connector)
                                         .instrument(
                                             tracing::error_span!("beta_ledger", swap_id = %local_swap_id, role = %role),
                                         )
@@ -1192,7 +1194,7 @@ impl libp2p::swarm::NetworkBehaviourEventProcess<comit_ln::BehaviourOutEvent> fo
                                     let alice_ethereum_identity = create_swap_params.ethereum_identity;
                                     let bob_ethereum_identity = ethereum_identity;
 
-                                    let asset = create_swap_params.ethereum_amount.clone();
+                                    let asset = create_swap_params.ethereum_amount;
                                     let ledger = ledger::Ethereum::default();
                                     let expiry = create_swap_params.ethereum_absolute_expiry;
 
@@ -1216,7 +1218,7 @@ impl libp2p::swarm::NetworkBehaviourEventProcess<comit_ln::BehaviourOutEvent> fo
                             Role::Bob => {
                                 tokio::task::spawn({
                                     let lnd_connector: LndConnectorAsSender = (**lnd_connector_params).clone().into();
-                                    self::halight::new_halight_swap(local_swap_id, secret_hash, self.halight_states.clone(), lnd_connector)
+                                    self::halight::new_halight_swap(local_swap_id, secret_hash, Params::from(create_swap_params.clone()), self.halight_states.clone(), lnd_connector)
                                         .instrument(
                                             tracing::error_span!("beta_ledger", swap_id = %local_swap_id, role = %role),
                                         )
