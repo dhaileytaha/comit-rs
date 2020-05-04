@@ -267,18 +267,16 @@ where
 pub struct Params {
     pub ethereum_identity: EthereumIdentity,
     pub ethereum_absolute_expiry: Timestamp,
-    // pub ethereum_amount: asset::Ether,
     pub lightning_identity: identity::Lightning,
     pub lightning_cltv_expiry: Timestamp,
     pub lightning_amount: asset::Bitcoin,
 }
 
-impl Params {
-    pub fn from(params: HanEtherereumHalightBitcoinCreateSwapParams) -> Self {
+impl From<HanEtherereumHalightBitcoinCreateSwapParams> for Params {
+    fn from(params: HanEtherereumHalightBitcoinCreateSwapParams) -> Self {
         Params {
             ethereum_identity: params.ethereum_identity,
             ethereum_absolute_expiry: params.ethereum_absolute_expiry,
-            // ethereum_amount: params.ethereum_amount,
             lightning_identity: params.lightning_identity,
             lightning_cltv_expiry: params.lightning_cltv_expiry,
             lightning_amount: params.lightning_amount,

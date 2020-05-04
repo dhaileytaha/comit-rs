@@ -929,9 +929,12 @@ where
     Save::save(&db, swap_request.clone()).await?;
 
     swap_communication_states
-        .insert(id, SwapCommunication::Proposed {
-            request: swap_request,
-        })
+        .insert(
+            id,
+            SwapCommunication::Proposed {
+                request: swap_request,
+            },
+        )
         .await;
 
     alpha_ledger_state
@@ -1183,7 +1186,7 @@ impl libp2p::swarm::NetworkBehaviourEventProcess<comit_ln::BehaviourOutEvent> fo
                             Role::Alice => {
                                 tokio::task::spawn({
                                     let lnd_connector: LndConnectorAsReceiver = (**lnd_connector_params).clone().into();
-                                    halight::new_halight_swap(local_swap_id, secret_hash, Params::from(create_swap_params.clone()), self.halight_states.clone(), lnd_connector)
+                                    halight::new_halight_swap(local_swap_id, secret_hash, create_swap_params.clone().into(), self.halight_states.clone(), lnd_connector)
                                         .instrument(
                                             tracing::error_span!("beta_ledger", swap_id = %local_swap_id, role = %role),
                                         )
@@ -1218,7 +1221,7 @@ impl libp2p::swarm::NetworkBehaviourEventProcess<comit_ln::BehaviourOutEvent> fo
                             Role::Bob => {
                                 tokio::task::spawn({
                                     let lnd_connector: LndConnectorAsSender = (**lnd_connector_params).clone().into();
-                                    self::halight::new_halight_swap(local_swap_id, secret_hash, Params::from(create_swap_params.clone()), self.halight_states.clone(), lnd_connector)
+                                    self::halight::new_halight_swap(local_swap_id, secret_hash,create_swap_params.clone().into(), self.halight_states.clone(), lnd_connector)
                                         .instrument(
                                             tracing::error_span!("beta_ledger", swap_id = %local_swap_id, role = %role),
                                         )
