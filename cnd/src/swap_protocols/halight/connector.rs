@@ -5,11 +5,10 @@ use crate::swap_protocols::{
         WaitForSettled,
     },
     rfc003::{Secret, SecretHash},
-    EthereumIdentity,
 };
 use anyhow::{Context, Error};
 
-use crate::{asset, ethereum, swap_protocols::halight::Params, timestamp::Timestamp};
+use crate::{asset, swap_protocols::halight::Params, timestamp::Timestamp};
 use reqwest::{
     header::{HeaderMap, HeaderValue},
     StatusCode, Url,
@@ -66,17 +65,13 @@ pub struct Invoice {
     #[serde(deserialize_with = "deserialize_timestamp")]
     pub cltv_expiry: Timestamp,
     pub state: InvoiceState,
-    pub fallback_addr: ethereum::Address,
     #[serde(deserialize_with = "deserialize_r_preimage")]
     pub r_preimage: Option<[u8; 32]>,
 }
 
 impl ValidateParams for Invoice {
     fn validate(self, params: halight::Params) -> Result<(), ValidationError> {
-        if params.lightning_cltv_expiry == self.cltv_expiry
-            && params.ethereum_identity == EthereumIdentity::from(self.fallback_addr)
-            && params.ethereum_absolute_expiry == self.expiry
-            && params.lightning_amount == self.value
+        if params.lightning_cltv_expiry == self.cltv_expiry && params.lightning_amount == self.value
         {
             Ok(())
         } else {
@@ -137,7 +132,7 @@ impl LndConnectorParams {
 
 fn read_file<T>(path: PathBuf) -> anyhow::Result<T>
 where
-    T: TryFrom<Vec<u8>, Error = anyhow::Error>,
+    T: TryFrom<Vec<u8>, Error = Error>,
 {
     let mut buf = Vec::new();
     std::fs::File::open(path)?.read_to_end(&mut buf)?;
@@ -148,7 +143,7 @@ where
 struct Certificate(reqwest::Certificate);
 
 impl TryFrom<Vec<u8>> for Certificate {
-    type Error = anyhow::Error;
+    type Error = Error;
     fn try_from(buf: Vec<u8>) -> Result<Self, Error> {
         Ok(Certificate(reqwest::Certificate::from_pem(&buf)?))
     }
@@ -159,7 +154,7 @@ impl TryFrom<Vec<u8>> for Certificate {
 struct Macaroon(String);
 
 impl TryFrom<Vec<u8>> for Macaroon {
-    type Error = anyhow::Error;
+    type Error = Error;
     fn try_from(buf: Vec<u8>) -> Result<Self, Error> {
         Ok(Macaroon(hex::encode(buf)))
     }
@@ -523,7 +518,7 @@ where
         type Value = asset::Bitcoin;
 
         fn expecting(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
-            formatter.write_str("a lightning r_preimage which is a base64 of an 32 byte array")
+            formatter.write_str("a bitcoin asset quantity as a string")
         }
 
         fn visit_str<E>(self, v: &str) -> Result<Self::Value, E>
@@ -548,7 +543,7 @@ where
         type Value = Timestamp;
 
         fn expecting(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
-            formatter.write_str("a lightning r_preimage which is a base64 of an 32 byte array")
+            formatter.write_str("a blocknumber as a string")
         }
 
         fn visit_str<E>(self, v: &str) -> Result<Self::Value, E>
@@ -619,7 +614,6 @@ mod tests {
 
         let invoice_json = r#"{
       "r_preimage": "FyNMCPE5nm96/QZUNXmFNzzDYYEaBtpXNcNe07bC+f8=",
-      "fallback_addr": "3MXqbMwf457U4Jaw35WnJdnL99mq7Q8oQQ",
       "value": "10000",
       "value_msat": "10000000",
       "expiry": "3600",
@@ -639,7 +633,6 @@ mod tests {
     fn deserialize_ln_invoice_preimage_empty() {
         let invoice_json = r#"{
       "r_preimage": "",
-      "fallback_addr": "3MXqbMwf457U4Jaw35WnJdnL99mq7Q8oQQ",
       "value": "10000",
       "value_msat": "10000000",
       "expiry": "3600",
@@ -656,7 +649,6 @@ mod tests {
     fn deserialize_ln_invoice_preimage_not_present() {
         let invoice_json = r#"{
       "r_preimage": null,
-      "fallback_addr": "3MXqbMwf457U4Jaw35WnJdnL99mq7Q8oQQ",
       "value": "10000",
       "value_msat": "10000000",
       "expiry": "3600",
