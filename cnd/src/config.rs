@@ -61,14 +61,14 @@ impl From<Bitcoin> for file::Bitcoin {
 #[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
 pub struct Ethereum {
     pub chain_id: ethereum::ChainId,
-    pub parity: Parity,
+    pub web3_url: Url,
 }
 
 impl From<Ethereum> for file::Ethereum {
     fn from(ethereum: Ethereum) -> Self {
         file::Ethereum {
             chain_id: ethereum.chain_id,
-            parity: Some(ethereum.parity),
+            web3_url: Some(ethereum.web3_url),
         }
     }
 }
@@ -77,17 +77,9 @@ impl Default for Ethereum {
     fn default() -> Self {
         Self {
             chain_id: ethereum::ChainId::regtest(),
-            parity: Parity {
-                node_url: Url::parse("http://localhost:8545")
-                    .expect("static string to be a valid url"),
-            },
+            web3_url: Url::parse("http://localhost:8545").expect("static string to be a valid url"),
         }
     }
-}
-
-#[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
-pub struct Parity {
-    pub node_url: Url,
 }
 
 #[derive(Clone, Debug, PartialEq, Serialize)]

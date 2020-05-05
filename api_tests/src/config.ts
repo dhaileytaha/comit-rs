@@ -112,13 +112,9 @@ interface LedgerConnectors {
     lightning?: LightningConnector;
 }
 
-interface Parity {
-    node_url: string;
-}
-
 interface EthereumConnector {
     chain_id: number;
-    parity: Parity;
+    web3_url: string;
 }
 
 interface Bitcoind {
@@ -152,9 +148,7 @@ function bitcoinConnector(nodeConfig: BitcoinNodeConfig): BitcoinConnector {
 function ethereumConnector(nodeConfig: EthereumNodeConfig): EthereumConnector {
     return {
         chain_id: nodeConfig.chain_id,
-        parity: {
-            node_url: nodeConfig.rpc_url,
-        },
+        web3_url: nodeConfig.rpc_url,
     };
 }
 

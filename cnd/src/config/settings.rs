@@ -1,6 +1,6 @@
 use crate::config::{
     default_lnd_cert_path, default_lnd_readonly_macaroon_path, file, Bitcoin, Bitcoind, Data,
-    Ethereum, File, Lightning, Lnd, Network, Parity,
+    Ethereum, File, Lightning, Lnd, Network,
 };
 use anyhow::Context;
 use log::LevelFilter;
@@ -54,18 +54,18 @@ fn derive_url_ethereum(ethereum: Option<file::Ethereum>) -> Ethereum {
     match ethereum {
         None => Ethereum::default(),
         Some(ethereum) => {
-            let node_url = match ethereum.parity {
+            let web3_url = match ethereum.web3_url {
                 None => {
                     // default is always localhost:8545
                     "http://localhost:8545"
                         .parse()
                         .expect("to be valid static string")
                 }
-                Some(parity) => parity.node_url,
+                Some(web3_url) => web3_url,
             };
             Ethereum {
                 chain_id: ethereum.chain_id,
-                parity: Parity { node_url },
+                web3_url,
             }
         }
     }
@@ -381,9 +381,7 @@ mod tests {
             .map(|settings| &settings.ethereum)
             .is_equal_to(Ethereum {
                 chain_id: ethereum::ChainId::regtest(),
-                parity: Parity {
-                    node_url: "http://localhost:8545".parse().unwrap(),
-                },
+                web3_url: "http://localhost:8545".parse().unwrap(),
             })
     }
 
@@ -398,7 +396,7 @@ mod tests {
         for (chain_id, url) in defaults {
             let ethereum = Some(file::Ethereum {
                 chain_id,
-                parity: None,
+                web3_url: None,
             });
             let config_file = File {
                 ethereum,
@@ -412,9 +410,7 @@ mod tests {
                 .map(|settings| &settings.ethereum)
                 .is_equal_to(Ethereum {
                     chain_id,
-                    parity: Parity {
-                        node_url: url.parse().unwrap(),
-                    },
+                    web3_url: url.parse().unwrap(),
                 })
         }
     }
