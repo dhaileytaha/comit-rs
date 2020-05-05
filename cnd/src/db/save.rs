@@ -512,6 +512,9 @@ impl Save<CreatedSwap<han::CreatedSwap, halight::CreatedSwap>> for Sqlite {
     async fn save(
         &self,
         _: CreatedSwap<han::CreatedSwap, halight::CreatedSwap>,
+        // TODO: Add the database schema below this point and make this actually save the "Created Swap"
+        // TODO: Note: Tobin is working on the design for the "Finalized" swap. Once that design is done we can add another Save for that and implement the tables under that.
+        // TODO: For the moment just add the necessary tables for this part.
     ) -> anyhow::Result<()> {
         unimplemented!()
     }
