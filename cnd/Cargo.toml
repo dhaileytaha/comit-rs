@@ -38,7 +38,7 @@ log = { version = "0.4", features = ["serde"] }
 lru = "0.4.3"
 num = "0.2"
 paste = "0.1"
-pem = "0.7"
+pem = "0.8"
 primitive-types = { version = "0.7.1", features = ["serde"] }
 rand = "0.7"
 reqwest = { version = "0.10", default-features = false, features = ["json", "native-tls"] }
