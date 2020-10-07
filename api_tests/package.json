@@ -32,7 +32,7 @@
         "@types/tail": "^2.0.0",
         "@types/tmp": "^0.2.0",
         "ajv": "^6.12.2",
-        "bignumber.js": "^9.0.0",
+        "bignumber.js": "^9.0.1",
         "bitcoin-core": "^3.0.0",
         "bitcoinjs-lib": "^5.1.7",
         "chmod": "^0.2.1",
